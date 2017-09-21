@@ -1,38 +1,14 @@
 /* Receive the controlling message, turning on/off and pwm, and
-   than set the corresponding pin.
-*/
-
+ * than set the corresponding pin.
+ */
 #include <WiFi.h>
-#include <WiFiClient.h>
 
 #define SSID "CSIE-WLAN"
 #define PASSWD "wificsie"
 #define TCP_IP "192.168.208.100"
 #define TCP_PORT 5000
 
-
 WiFiClient wifiClient;
-static char buf[32];
-static int messageLen;
-static char client_ID[] = "Sarah";
-static char *recv_ID, *recv_buf, *recv_buf_t1, *recv_buf_t2;
-
-
-static char buffer[256];
-static char _buffer[256];
-static int char_count = 0;
-String temp = "";
-int xf, yf;
-float x_s, y_s;
-int Dx, Dy;
-float movm, posm, xmov, ymov;
-int toaskPos = 1;
-int pos[5];
-
-String out_to_uno = "";
-int the_end = 0;
-byte uno_busy = 0;
-
 
 enum MotorPinID {
   L_F = 0,
@@ -41,60 +17,12 @@ enum MotorPinID {
   R_B,
   NUM_OF_MOTOR_PIN
 };
-enum UltrasonicPinID {
-  U_F = 0,
-  U_L,
-  U_R,
-  NUM_OF_ULTRASONIC_PIN
-};
-
-/* Pin assignment */
-// Pins cannot be used on ESP32-DevKit-C: CLK, SD0, SD1, SD2, SD3, CMD,
-// SVN, SVP, EN, 2, 0, 32, 33, 34, 35
-// TXD0 and RXD0 are similar to the pin 0 and 1 on Arduino.
 static const uint8_t motorPins[NUM_OF_MOTOR_PIN] = {22, 23, 32, 33};  //  L_F, L_B,R_F, R_B
-static const uint8_t usTrigPins[NUM_OF_ULTRASONIC_PIN] = {18, 16, 4 };  // F, L, R
-static const uint8_t usEchoPins[NUM_OF_ULTRASONIC_PIN] = {19, 17, 21 };  // F, L, R
-//TCS3200 colorSensor(25, 26, 27, 14, 12);  // S0, S1, S2, S3, Out
 
-long ultrasonicGetDistance(uint8_t trig, uint8_t echo)
-{
-  long duration;
-
-  pinMode(trig, OUTPUT);
-  digitalWrite(trig, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trig, HIGH);
-  delayMicroseconds(5);
-  digitalWrite(trig, LOW);
-
-  pinMode(echo, INPUT);
-  duration = pulseIn(echo, HIGH, 5000000L);
-  return duration / 29 / 2;
-}
-
-void reportUltrasonic()
-{
-  long dF, dL, dR;
-
-  dF = ultrasonicGetDistance(usTrigPins[U_F], usEchoPins[U_F]);
-  dL = ultrasonicGetDistance(usTrigPins[U_L], usEchoPins[U_L]);
-  dR = ultrasonicGetDistance(usTrigPins[U_R], usEchoPins[U_R]);
-
-  sprintf(buf, "F:%ld cm, L:%ld cm, R:%ld cm", dF, dL, dR);
-  wifiClient.write(buf, strlen(buf));
-  wifiClient.flush();
-}
-
-//void reportColorSensor()
-//{
-//  sprintf(buf, "R: %ld, G: %ld, B: %ld",
-//      colorSensor.getPeriod(RED),
-//      colorSensor.getPeriod(GREEN),
-//      colorSensor.getPeriod(BLUE));
-//  wifiClient.write(buf, strlen(buf));
-//  wifiClient.flush();
-//}
+static char buf[32];
+static int messageLen;
+static char client_ID[] = "Sarah";
+static int pos[5];
 
 void forward(int t)
 {
@@ -134,7 +62,6 @@ void right(int t)
   Serial.println("right");
   delay(t);
 }
-
 void initialPins()
 {
   // Attach pins to the PWM controller.
@@ -151,221 +78,99 @@ void initialPins()
   ledcWrite(R_F, 0);
   ledcWrite(R_B, 0);
 }
-
-//void pop_from_queue() {
-//  the_end = temp.indexOf('@', 0);
-//  if (the_end > 1) {
-//    uno_busy = 1;
-//    out_to_uno = temp.substring(0, the_end);
-//    Serial.print("the outtouno:");
-//    Serial.println(out_to_uno);//can not send all instraction
-//    temp = temp.substring(the_end + 1);
-//    Serial.println("the temp:");
-//    Serial.print(temp);
-//  } else {
-//    uno_busy = 0;
-//    Serial.println("the_queue is clear");
-//  }
-//}
-
-void reg_ID()
-{
-  strcpy(buf, "Register|");
-  strcat(buf, client_ID);
-  wifiClient.write(buf, strlen(buf));
-  wifiClient.flush();
-}
-
-void send_mes(char ID[], char mes[])
-{
-  sprintf(buf, "%s|%s", ID, mes);
-  wifiClient.write(buf, strlen(buf));
-  wifiClient.flush();
-}
-
-void askPos()//int toaskPos
-{
-  temp ="";
-//  while (true)
-//  {
-   
-//    if(parameter){ //*((int*)parameter)
-//      Serial.println("good");
-      if ((messageLen = wifiClient.available()) > 0) {
-        int i = 0;
-        do
-        {
-          buf[i++] = wifiClient.read();
-        } while (i < 32 && buf[i - 1] != '\r');
-  
-        buf[i - 1] = '\0'; //        Master|(x,y)(Dx,Dy)
-//        recv_ID = strtok(buf, "|\0");
-//        Serial.print(recv_ID);
-//        Serial.print(":");
-//        recv_buf = strtok(NULL, "|\0");
-//        Serial.println(recv_buf);
-//        
-        
-        char *pch;
-        
-        pch = strtok(buf,"|\0");
-        int j = 0;
-        while (pch != NULL)
-        {
-          int tmp = atoi(pch);
-          pos[j] = tmp ;
-          //Serial.println(pos[j]);
-          j++;
-          pch = strtok(NULL,"[,]() ");
-          
-        }
-//        temp += recv_buf;
-        for(int i=1;i<sizeof(buf);i++){ buf[i]={0}; } 
-//        Serial.println(temp);
-//        Serial.println("xf");
-//        String tttemp = temp.substring(8, 9);
-//        xf = tttemp.toFloat();
-//        Serial.println((temp.substring(1, 2)).toFloat());
-//        Serial.println("ttttemp_xf");
-//xf = (temp.substring(1, 2)).toFloat();
-//        yf = (temp.substring(2, 4)).toFloat();
-//        Dx = (temp.substring(13, 14)).toFloat();
-//        Dy = (temp.substring(15, 16)).toFloat();
-        //        recv_buf = strtok(NULL,",\0");
-        xf = pos[1];
-        yf = pos[2];
-        Dx = pos[3];
-        Dy = pos[4];
-        Serial.println(xf);
-        Serial.println(yf);
-        Serial.println(Dx);
-        Serial.println(Dy);
-        Serial.println("------------------------");
-        send_mes("Position", "");
-      }
-      delay(100);
-//      parameter = 0; 
-//    }
-    
-//  }
-    
-//    vTaskDelete( NULL );
-}
-
+IPAddress ip;
 void setup()
 {
-  Serial.begin(115200);
-  while (!Serial)
-    ;
-  initialPins();
-  //  colorSensor.setOutFreqScaling(PERCENT_100);
+   
+    Serial.begin(115200);
+    while (!Serial)
+      ;       
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASSWD);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    // Connect failed, blink 0.5 second to indicate
-    // the board is retrying.
-    delay(500);
+    initialPins();
+    
+    // set WiFi
+    WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASSWD);
-  }
-
-
-  // Conenct to AP successfully
-//  wifiClient.connect(TCP_IP, TCP_PORT)
-  while (!wifiClient.connect(TCP_IP, TCP_PORT)){
+    while (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        // Connect failed, blink 0.5 second to indicate
+        // the board is retrying.
+        delay(500);
+        WiFi.begin(SSID, PASSWD);
+    }
+    
+    // Conenct to AP successfully
+    while (!wifiClient.connect(TCP_IP, TCP_PORT)){
       delay(300);
       Serial.print("Attempting to connect to SERVER: ");
         Serial.println(TCP_IP);
     }
-Serial.print("Connected to SERVER: ");
-  reg_ID();
-  
-  delay(1000);
-//  xTaskCreatePinnedToCore(//xTaskCreate(
-//    askPos,          /* Task function. */
-//    "askPos",        /* String with name of task. */
-//    10000,            /* Stack size in words. */
-//   (void*)&toaskPos,             /* Parameter passed as input of the task */  
-//    1,                /* Priority of the task. */
-//    NULL,0);            /* Task handle. */
-//
+    reg_ID();
+
+    delay(1000);
+    xTaskCreate(
+                    askPos,          /* Task function. */
+                    "askPos",        /* String with name of task. */
+                    10000,            /* Stack size in words. */
+                    NULL,             /* Parameter passed as input of the task */
+                    1,                /* Priority of the task. */
+                    NULL);            /* Task handle. */
+}  
+
+void reg_ID()
+{
+    strcpy(buf,"Register|");
+    strcat(buf,client_ID);
+    wifiClient.write(buf, strlen(buf));
+    wifiClient.flush();
 }
 
-void adjust_direction() {
-  //adjust direction
-  float posx = Dx - x_s;
-  float posy = Dy - y_s;
-  float posm = posy / posx;
-  // cos theta
-  float costheta = (posx * xmov + posy * ymov) / (sqrt(pow(posx, 2) + pow(posy, 2)) * sqrt(pow(xmov, 2) + pow(ymov, 2)));
-  int turn_time = 180 - (costheta * 10);
-  if ((posx > 0 && xmov > 0) || (posx < 0 && xmov < 0 )) {
-    if (movm < posm) {
-      left(turn_time);
-    } else {
-      right(turn_time);
-    }
-  } else if (posx > 0 && xmov < 0) { //II--> I OR III-->I or II--> IV or
-    if (movm < posm ) {
-      right(turn_time);
-    } else {
-      left(turn_time);
-    }
-  } else if (posx < 0 && xmov > 0) {
-    if (posy > 0) {
-      if (ymov > 0) {
-        left(turn_time); //I-->II
-      }
-      else if (abs(movm) < abs(posm) ) {
-        left(turn_time);
-      }// IV-->II
-      else
-        right(turn_time);
-    }
-    else {
-      if (movm < posm) {
-        left(turn_time); //III-->IV or I
-      }
-      else
-        right(turn_time);
-    }
+void send_mes(char ID[],char mes[])
+{
+    sprintf(buf,"%s|%s",ID,mes);
+    wifiClient.write(buf, strlen(buf));
+    wifiClient.flush();
+}
+void get_buf(){
+  char *pch;
+    pch = strtok(buf,"|\0");
+    int j = 0;
+    while (pch != NULL)
+  {
+    int tmp = atoi(pch);
+    pos[j] = tmp ;
+    j++;
+    pch = strtok(NULL,"[,]() ");
+    
   }
 }
+void askPos( void * parameter )
+{
+    while(1)
+    {
+      if ((messageLen = wifiClient.available()) > 0) {
+        int i = 0;
+        do
+        {
+            buf[i++] = wifiClient.read();
+        }while(i<32 && buf[i-1]!='\r');
+        
+        buf[i-1] = '\0';
+        send_mes("Position","");
+      }
+      delay(100);
+    }
+    
+    Serial.println("Ending task 1");
+    vTaskDelete( NULL );
+ 
+}
+
 
 void loop()
-{
-    
-  //get car direction
-//  toaskPos = 1;
-//  delay(100);
-  askPos();
-//  delay(50);
-//  toaskPos = 0;
-  x_s = xf;
-  y_s = yf;
-  
-  forward(30);
-//  toaskPos = 1;
-//  delay(100);
-  askPos();
-//  delay(50);
-//  toaskPos = 0;
- Serial.print("get second pos");
-  xmov = xf - x_s;
-  ymov = yf - y_s;
-  movm = ymov / xmov;
-  adjust_direction();
-  forward(300);
-
-  long dF, dL, dR;
-  dF = ultrasonicGetDistance(usTrigPins[U_F], usEchoPins[U_F]);
-  Serial.print(dF);
-  if (dF < 10) {
-    left(100);
-    forward(100);
-  }
-
-
-//  delay(500);
-
-}
+{     
+   Serial.println(pos[1]);
+   Serial.println(pos[2]);
+   Serial.println(pos[3]);
+   Serial.println(pos[4]);
+   delay(100);
+} 
